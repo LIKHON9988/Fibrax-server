@@ -2,6 +2,9 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+
+const stripe = require("stripe")(process.env.STRIPE_SECERET_KEY);
+
 const admin = require("firebase-admin");
 const port = process.env.PORT || 3000;
 const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
@@ -16,11 +19,7 @@ const app = express();
 // middleware
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://b12-m11-session.web.app",
-    ],
+    origin: [process.env.CLIENT_DOMAIN],
     credentials: true,
     optionSuccessStatus: 200,
   })
@@ -79,6 +78,41 @@ async function run() {
       res.send(result);
     });
 
+    // payment parts---------->
+    app.post("/create-checkout-session", async (req, res) => {
+      const paymentInfo = req.body;
+
+      console.log(paymentInfo);
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: paymentInfo?.name,
+                description: paymentInfo?.description,
+                images: [paymentInfo?.ia],
+              },
+              unit_amount: paymentInfo?.price * 100,
+            },
+            quantity: paymentInfo?.quantity,
+          },
+        ],
+        customer_email: paymentInfo?.cutomer?.email,
+        mode: "payment",
+        metadata: {
+          productid: paymentInfo?.productid,
+
+          // customer: {
+          //   name: paymentInfo?.cutomer.customer,
+          //   email: paymentInfo?.customer.email,
+          // },
+        },
+        success_url: `${process.env.CLIENT_DOMAIN}/paymentSuccessful`,
+        cancel_url: `${process.env.CLIENT_DOMAIN}/product/${paymentInfo?.productid}`,
+      });
+      res.send({ url: session.url });
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
