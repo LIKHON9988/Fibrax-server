@@ -54,6 +54,7 @@ async function run() {
   try {
     const db = client.db("productsDb");
     const productColl = db.collection("products");
+    const ordersColl = db.collection("orders");
 
     // post product data
 
@@ -91,7 +92,7 @@ async function run() {
               product_data: {
                 name: paymentInfo?.name,
                 description: paymentInfo?.description,
-                images: [paymentInfo?.ia],
+                images: [paymentInfo?.image],
               },
               unit_amount: paymentInfo?.price * 100,
             },
@@ -101,18 +102,101 @@ async function run() {
         customer_email: paymentInfo?.cutomer?.email,
         mode: "payment",
         metadata: {
-          productid: paymentInfo?.productid,
-
-          // customer: {
-          //   name: paymentInfo?.cutomer.customer,
-          //   email: paymentInfo?.customer.email,
-          // },
+          productId: String(paymentInfo?.productId),
+          customer_name: paymentInfo.customer.customer,
+          customer_email: paymentInfo.customer.email,
         },
-        success_url: `${process.env.CLIENT_DOMAIN}/paymentSuccessful`,
-        cancel_url: `${process.env.CLIENT_DOMAIN}/product/${paymentInfo?.productid}`,
+        success_url: `${process.env.CLIENT_DOMAIN}/paymentSuccessful?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.CLIENT_DOMAIN}/product/${paymentInfo?.productId}`,
       });
       res.send({ url: session.url });
     });
+
+    // ------------
+
+    app.post("/paymentSuccessful", async (req, res) => {
+      const { sessionId } = req.body;
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      console.log(session);
+
+      const product = await productColl.findOne({
+        _id: new ObjectId(session.metadata.productId),
+      });
+
+      const order = await ordersColl.findOne({
+        transactionId: session.payment_intent,
+      });
+
+      if (session.status === "complete" && product && !order) {
+        const orderInfo = {
+          productId: session.metadata.productId,
+          transactionId: session.payment_intent,
+          customer_email: session.metadata.customer_email,
+          customer_name: session.metadata.customer_name,
+          status: "pending",
+          manager: product.maneger,
+          name: product.name,
+          category: product.category,
+          quantity: 1,
+          price: session.amount_total / 100,
+        };
+        const result = await ordersColl.insertOne(orderInfo);
+
+        await productColl.updateOne(
+          { _id: new ObjectId(session.metadata.productId) },
+          { $inc: { quantity: -1 } }
+        );
+
+        return res.send(
+          { transactionId: session.payment_intent },
+          { orderId: result.insertedId }
+        );
+      }
+      res.send(
+        { transactionId: session.payment_intent },
+        { orderId: order._id }
+      );
+    });
+
+    // get my orders for customers by email------------>
+
+    app.get("/my-orders/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await ordersColl
+        .find({
+          customer_email: email,
+        })
+        .toArray();
+
+      res.send(result);
+    });
+
+    // get  orders for manager by email------------>
+
+    app.get("/manage-orders/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await ordersColl
+        .find({
+          "manager.email": email,
+        })
+        .toArray();
+
+      res.send(result);
+    });
+
+    // get  orders for manager by email------------>
+
+    app.get("/manage-products/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await ordersColl
+        .find({
+          "manager.email": email,
+        })
+        .toArray();
+
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
