@@ -55,6 +55,7 @@ async function run() {
     const db = client.db("productsDb");
     const productColl = db.collection("products");
     const ordersColl = db.collection("orders");
+    const userColl = db.collection("users");
 
     // post product data
 
@@ -78,7 +79,7 @@ async function run() {
       const result = await cursor;
       res.send(result);
     });
-    
+    // update products-----------
     app.patch("/products/:id", async (req, res) => {
       const id = req.params.id;
       const payload = req.body || {};
@@ -139,7 +140,7 @@ async function run() {
       res.send({ url: session.url });
     });
 
-    // ------------
+    // payment successfull------------
 
     app.post("/paymentSuccessful", async (req, res) => {
       const { sessionId } = req.body;
@@ -223,7 +224,7 @@ async function run() {
 
       res.send(result);
     });
-    
+
     // delete product by id
     app.delete("/products/:id", async (req, res) => {
       const { id } = req.params;
@@ -262,6 +263,8 @@ async function run() {
         res.status(500).send({ success: false, message: "Delete failed" });
       }
     });
+
+    // userss operations............>
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
