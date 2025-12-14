@@ -78,6 +78,33 @@ async function run() {
       const result = await cursor;
       res.send(result);
     });
+    
+    app.patch("/products/:id", async (req, res) => {
+      const id = req.params.id;
+      const payload = req.body || {};
+      try {
+        const filter = { _id: new ObjectId(id) };
+        const allowed = [
+          "name",
+          "category",
+          "description",
+          "price",
+          "quantity",
+          "moq",
+          "payment",
+          "image",
+        ];
+        const updateDoc = {};
+        for (const key of allowed) {
+          if (payload[key] !== undefined) updateDoc[key] = payload[key];
+        }
+        const result = await productColl.updateOne(filter, { $set: updateDoc });
+        res.send({ modifiedCount: result.modifiedCount });
+      } catch (err) {
+        console.log(err);
+        res.status(500).send({ message: "Failed to update product", err });
+      }
+    });
 
     // payment parts---------->
     app.post("/create-checkout-session", async (req, res) => {
@@ -195,6 +222,18 @@ async function run() {
         .toArray();
 
       res.send(result);
+    });
+    
+    // delete product by id
+    app.delete("/products/:id", async (req, res) => {
+      const { id } = req.params;
+      try {
+        const result = await productColl.deleteOne({ _id: new ObjectId(id) });
+        res.send({ deletedCount: result.deletedCount });
+      } catch (err) {
+        console.log(err);
+        res.status(500).send({ message: "Failed to delete product", err });
+      }
     });
 
     //  get all orders
