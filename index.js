@@ -184,17 +184,44 @@ async function run() {
       res.send(result);
     });
 
-    // get  orders for manager by email------------>
+    // get manage_ products for manager by email------------>
 
     app.get("/manage-products/:email", async (req, res) => {
       const email = req.params.email;
-      const result = await ordersColl
+      const result = await productColl
         .find({
-          "manager.email": email,
+          "maneger.email": email,
         })
         .toArray();
 
       res.send(result);
+    });
+
+    //  get all orders
+
+    app.get("/all-orders", async (req, res) => {
+      const cursor = ordersColl.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    // delete order by id
+    app.delete("/orders/:id", async (req, res) => {
+      const id = req.params.id;
+
+      try {
+        const result = await ordersColl.deleteOne({
+          _id: new ObjectId(id),
+        });
+
+        if (result.deletedCount === 1) {
+          res.send({ success: true, message: "Order deleted" });
+        } else {
+          res.status(404).send({ success: false, message: "Order not found" });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ success: false, message: "Delete failed" });
+      }
     });
 
     // Send a ping to confirm a successful connection
