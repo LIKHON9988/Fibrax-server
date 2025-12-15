@@ -73,6 +73,12 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/active-products", async (req, res) => {
+      const cursor = productColl.find().limit(6);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     app.get("/products/:id", async (req, res) => {
       const id = req.params.id;
       const cursor = productColl.findOne({ _id: new ObjectId(id) });
