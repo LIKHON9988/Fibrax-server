@@ -266,6 +266,30 @@ async function run() {
 
     // userss operations............>
 
+    app.post("/users", async (req, res) => {
+      const userData = req.body;
+
+      userData.created_at = new Date().toISOString();
+      userData.last_loggedIn = new Date().toISOString();
+
+      const query = { email: userData.email };
+
+      const existingUser = await userColl.findOne(query);
+
+      console.log("already existed----->", !!existingUser);
+
+      if (existingUser) {
+        console.log("updating user");
+        const result = await userColl.updateOne(query, {
+          $set: { last_loggedIn: new Date().toISOString() },
+        });
+        return res.send(result);
+      }
+      console.log("saving new  user");
+      const result = await userColl.insertOne(userData);
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
