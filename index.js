@@ -56,6 +56,7 @@ async function run() {
     const productColl = db.collection("products");
     const ordersColl = db.collection("orders");
     const userColl = db.collection("users");
+    const managerReqColl = db.collection("managerRequest");
 
     // post product data
 
@@ -194,11 +195,10 @@ async function run() {
 
     // get my orders for customers by email------------>
 
-    app.get("/my-orders/:email", async (req, res) => {
-      const email = req.params.email;
+    app.get("/my-orders", verifyJWT, async (req, res) => {
       const result = await ordersColl
         .find({
-          customer_email: email,
+          customer_email: req.tokenEmail,
         })
         .toArray();
 
@@ -296,12 +296,49 @@ async function run() {
       res.send(result);
     });
 
-    // get users for hook role ----->
+    // get users for  role ----->
 
-    app.get("/user/role/:email", async (req, res) => {
-      const email = req.params.email;
-      const result = await userColl.findOne({ email });
+    app.get("/user/role", verifyJWT, async (req, res) => {
+      const result = await userColl.findOne({ email: req.tokenEmail });
       res.send({ role: result?.role });
+    });
+
+    // become a manager-------->
+
+    app.post("/become-manager", verifyJWT, async (req, res) => {
+      const email = req.tokenEmail;
+      const alreadyExist = await managerReqColl.findOne({ email });
+      if (alreadyExist)
+        return res
+          .status(409)
+          .send({ message: "You have already requested, please wait" });
+      const result = await managerReqColl.insertOne({ email });
+      res.send(result);
+    });
+
+    // manager requests-->
+
+    app.get("/manager-requests", verifyJWT, async (req, res) => {
+      const result = await managerReqColl.find().toArray();
+      res.send(result);
+    });
+
+    // get all  users for manage-->
+
+    app.get("/all-users", verifyJWT, async (req, res) => {
+      const adminEmail = req.tokenEmail;
+      const result = await userColl
+        .find({ email: { $ne: adminEmail } })
+        .toArray();
+      res.send(result);
+    });
+
+    // update users role------->
+    app.patch("/update-role", verifyJWT, async (req, res) => {
+      const { email, role } = req.body;
+      const result = await userColl.updateOne({ email }, { $set: { role } });
+      await managerReqColl.deleteOne({ email });
+      res.send(result);
     });
 
     // Send a ping to confirm a successful connection
