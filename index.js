@@ -58,9 +58,31 @@ async function run() {
     const userColl = db.collection("users");
     const managerReqColl = db.collection("managerRequest");
 
+    // role verify midlewares
+
+    const verifyADMIN = async (req, res, next) => {
+      const email = req.tokenEmail;
+      const user = await userColl.findOne({ email });
+      if (user?.role !== "Admin")
+        return res
+          .status(409)
+          .send({ message: "Admin only actions", role: user?.role });
+      next();
+    };
+
+    const verifyMANAGER = async (req, res, next) => {
+      const email = req.tokenEmail;
+      const user = await userColl.findOne({ email });
+      if (user?.role !== "Manager")
+        return res
+          .status(409)
+          .send({ message: "Manager only actions", role: user?.role });
+      next();
+    };
+
     // post product data
 
-    app.post("/products", async (req, res) => {
+    app.post("/products", verifyJWT, verifyMANAGER, async (req, res) => {
       const productData = req.body;
       const result = await productColl.insertOne(productData);
       res.send(result);
