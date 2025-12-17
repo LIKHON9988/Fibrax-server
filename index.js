@@ -265,6 +265,40 @@ async function run() {
       }
     );
 
+    // approved orders for a manager
+    app.get(
+      "/manage-orders/:email/approved",
+      verifyJWT,
+      verifyMANAGER,
+      async (req, res) => {
+        const email = req.params.email;
+        const result = await ordersColl
+          .find({
+            "manager.email": email,
+            status: { $regex: /^approved$/i },
+          })
+          .toArray();
+        res.send(result);
+      }
+    );
+
+    // pending orders for a manager
+    app.get(
+      "/manage-orders/:email/pending",
+      verifyJWT,
+      verifyMANAGER,
+      async (req, res) => {
+        const email = req.params.email;
+        const result = await ordersColl
+          .find({
+            "manager.email": email,
+            status: { $regex: /^pending$/i },
+          })
+          .toArray();
+        res.send(result);
+      }
+    );
+
     // delete product by id
     app.delete("/products/:id", async (req, res) => {
       const { id } = req.params;
@@ -301,6 +335,62 @@ async function run() {
       } catch (error) {
         console.error(error);
         res.status(500).send({ success: false, message: "Delete failed" });
+      }
+    });
+
+    // update order status by id (manager only)
+    app.patch(
+      "/orders/:id/status",
+      verifyJWT,
+      verifyMANAGER,
+      async (req, res) => {
+        const id = req.params.id;
+        const { status } = req.body || {};
+
+        const allowed = ["Pending", "Approved", "Rejected"];
+        if (!allowed.includes(status)) {
+          return res
+            .status(400)
+            .send({ message: "Invalid status value", allowed });
+        }
+
+        try {
+          const update =
+            status === "Approved"
+              ? { $set: { status, approved_at: new Date().toISOString() } }
+              : { $set: { status }, $unset: { approved_at: "" } };
+
+          const result = await ordersColl.updateOne(
+            { _id: new ObjectId(id), "manager.email": req.tokenEmail },
+            update
+          );
+
+          if (result.matchedCount === 0) {
+            return res
+              .status(404)
+              .send({ message: "Order not found or not owned by manager" });
+          }
+
+          res.send({ modifiedCount: result.modifiedCount, status });
+        } catch (err) {
+          console.error(err);
+          res.status(500).send({ message: "Failed to update status" });
+        }
+      }
+    );
+
+    // get single order details for admin
+    app.get("/admin/orders/:id", verifyJWT, verifyADMIN, async (req, res) => {
+      const id = req.params.id;
+      try {
+        const order = await ordersColl.findOne({ _id: new ObjectId(id) });
+        if (!order) {
+          return res.status(404).send({ message: "Order not found" });
+        }
+        res.send(order);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to fetch order" });
       }
     });
 
