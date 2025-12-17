@@ -196,6 +196,8 @@ async function run() {
           category: product.category,
           quantity: 1,
           price: session.amount_total / 100,
+          created_at: new Date().toISOString(),
+          tracking: [],
         };
         const result = await ordersColl.insertOne(orderInfo);
 
@@ -299,6 +301,39 @@ async function run() {
       } catch (error) {
         console.error(error);
         res.status(500).send({ success: false, message: "Delete failed" });
+      }
+    });
+
+    // get single order details (owner-only)
+    app.get("/orders/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      try {
+        const order = await ordersColl.findOne({ _id: new ObjectId(id) });
+        if (!order) {
+          return res.status(404).send({ message: "Order not found" });
+        }
+        if (order.customer_email !== req.tokenEmail) {
+          return res.status(403).send({ message: "Forbidden" });
+        }
+        res.send(order);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to fetch order" });
+      }
+    });
+
+    // get tracking timeline for a single order (owner-only)
+    app.get("/orders/:id/tracking", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      try {
+        const order = await ordersColl.findOne({ _id: new ObjectId(id) });
+        if (!order) return res.status(404).send({ message: "Order not found" });
+        if (order.customer_email !== req.tokenEmail)
+          return res.status(403).send({ message: "Forbidden" });
+        res.send({ tracking: order.tracking || [] });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to fetch tracking" });
       }
     });
 
