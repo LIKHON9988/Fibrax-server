@@ -229,29 +229,39 @@ async function run() {
 
     // get  orders for manager by email------------>
 
-    app.get("/manage-orders/:email", async (req, res) => {
-      const email = req.params.email;
-      const result = await ordersColl
-        .find({
-          "manager.email": email,
-        })
-        .toArray();
+    app.get(
+      "/manage-orders/:email",
+      verifyJWT,
+      verifyMANAGER,
+      async (req, res) => {
+        const email = req.params.email;
+        const result = await ordersColl
+          .find({
+            "manager.email": email,
+          })
+          .toArray();
 
-      res.send(result);
-    });
+        res.send(result);
+      }
+    );
 
     // get manage_ products for manager by email------------>
 
-    app.get("/manage-products/:email", async (req, res) => {
-      const email = req.params.email;
-      const result = await productColl
-        .find({
-          "maneger.email": email,
-        })
-        .toArray();
+    app.get(
+      "/manage-products/:email",
+      verifyJWT,
+      verifyMANAGER,
+      async (req, res) => {
+        const email = req.params.email;
+        const result = await productColl
+          .find({
+            "maneger.email": email,
+          })
+          .toArray();
 
-      res.send(result);
-    });
+        res.send(result);
+      }
+    );
 
     // delete product by id
     app.delete("/products/:id", async (req, res) => {
@@ -340,14 +350,14 @@ async function run() {
 
     // manager requests-->
 
-    app.get("/manager-requests", verifyJWT, async (req, res) => {
+    app.get("/manager-requests", verifyJWT, verifyADMIN, async (req, res) => {
       const result = await managerReqColl.find().toArray();
       res.send(result);
     });
 
     // get all  users for manage-->
 
-    app.get("/all-users", verifyJWT, async (req, res) => {
+    app.get("/all-users", verifyJWT, verifyADMIN, async (req, res) => {
       const adminEmail = req.tokenEmail;
       const result = await userColl
         .find({ email: { $ne: adminEmail } })
@@ -356,7 +366,7 @@ async function run() {
     });
 
     // update users role------->
-    app.patch("/update-role", verifyJWT, async (req, res) => {
+    app.patch("/update-role", verifyJWT, verifyADMIN, async (req, res) => {
       const { email, role } = req.body;
       const result = await userColl.updateOne({ email }, { $set: { role } });
       await managerReqColl.deleteOne({ email });
