@@ -57,6 +57,7 @@ async function run() {
     const ordersColl = db.collection("orders");
     const userColl = db.collection("users");
     const managerReqColl = db.collection("managerRequest");
+    const customerColl = db.collection("reviews");
 
     // role verify midlewares
 
@@ -107,6 +108,17 @@ async function run() {
       const cursor = productColl.findOne({ _id: new ObjectId(id) });
       const result = await cursor;
       res.send(result);
+    });
+    // get customer reviews
+    app.get("/reviews", async (req, res) => {
+      try {
+        const cursor = customerColl.find().sort({ _id: -1 });
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to fetch reviews" });
+      }
     });
     // update products-----------
     app.patch("/products/:id", async (req, res) => {
