@@ -510,6 +510,29 @@ async function run() {
       res.send(result);
     });
 
+    // update own profile (name, image)
+    app.patch("/users/profile", verifyJWT, async (req, res) => {
+      try {
+        const email = req.tokenEmail;
+        const { name, image } = req.body || {};
+        const updateDoc = {};
+        if (typeof name === "string") updateDoc.name = name;
+        if (typeof image === "string") updateDoc.image = image;
+        if (Object.keys(updateDoc).length === 0) {
+          return res.status(400).send({ message: "No valid fields to update" });
+        }
+        updateDoc.updated_at = new Date().toISOString();
+        const result = await userColl.updateOne({ email }, { $set: updateDoc });
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ message: "User not found" });
+        }
+        res.send({ modifiedCount: result.modifiedCount });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to update profile" });
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
